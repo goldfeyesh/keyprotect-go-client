@@ -190,8 +190,33 @@ type Error struct {
 	CorrelationID string // string value of a UUID that uniquely identifies the request to KeyProtect
 }
 
+type ErrResponseBody struct {
+	Resources []Resource `json:"resources,omitempty"`
+}
+
+type Resource struct {
+	Reasons []Reason `json:"reasons,omitempty"`
+}
+
+type Reason struct {
+	Code     string `json:"code,omitempty"`
+	Message  string `json:"message,omitempty"`
+	Status   int    `json:"status,omitempty"`
+	MoreInfo string `json:"moreInfo,omitempty"`
+}
+
+// Error returns correlation id and error message string
 func (e Error) Error() string {
-	return fmt.Sprintf("kp.Error: correlation_id='%v', msg='%v'", e.CorrelationID, e.Message)
+	var bodyReasons ErrResponseBody
+	err := json.Unmarshal(e.BodyContent, &bodyReasons)
+	var errMessage string
+
+	if err == nil && len(bodyReasons.Resources) > 0 && bodyReasons.Resources[0].Reasons != nil {
+		errMessage = bodyReasons.Resources[0].Reasons[0].Message
+	} else {
+		errMessage = e.Message
+	}
+	return fmt.Sprintf("kp.Error: correlation_id='%v', msg='%v'", e.CorrelationID, errMessage)
 }
 
 // URLError wraps an error from client.do() calls with a correlation ID from KeyProtect
